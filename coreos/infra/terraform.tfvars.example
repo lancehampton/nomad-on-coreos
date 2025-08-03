@@ -1,7 +1,7 @@
 # Example terraform.tfvars - Copy to terraform.tfvars and customize
 
 target_user         = "core"
-target_host         = "172.16.31.42"  # Update with your target machine IP
+target_host         = "10.0.1.100"  # Update with your target machine IP
 
 # Sensitive values - replace with your actual credentials
 # Generate password hash with: openssl passwd -6

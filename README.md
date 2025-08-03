@@ -2,11 +2,13 @@
 
 Learn immutable Linux and HashiCorp Nomad by deploying a single-node container orchestration setup using **uCore** (batteries-included Fedora CoreOS).
 
+> **Project Status**: Complete weekend learning exercise. Successfully deployed full stack with service discovery and load balancing. **Key finding**: While technically functional, Kubernetes ecosystem maturity provides better long-term value for homelab orchestration. See [Project Takeaways](#project-takeaways--lessons-learned) for detailed analysis.
+
 ## Why uCore?
 
-- **🛡️ Immutable & Secure**: Filesystem immutability with automatic security updates
-- **📦 Batteries Included**: Tailscale, ZFS, Podman, Cockpit pre-installed
-- **🔧 Low Maintenance**: Declarative configuration, automatic updates
+- **Immutable & Secure**: Filesystem immutability with automatic security updates
+- **Batteries Included**: Tailscale, ZFS, Podman, Cockpit pre-installed
+- **Low Maintenance**: Declarative configuration, automatic updates
 
 ## Quick Start
 
@@ -107,29 +109,50 @@ nomad-on-coreos/
 ├── coreos/
 │   ├── ignition/               # Butane configs (.yaml)
 │   └── infra/                  # Transpiles Butane to Ignition
-├── nomad/
-│   ├── jobs/                   # Nomad job definitions (.hcl)
-│   └── infra/                  # OpenTofu for job deployment
-└── docs/                       # Learning documentation
+└── nomad/
+    ├── jobs/                   # Nomad job definitions (.hcl)
+    └── infra/                  # OpenTofu for job deployment
 ```
-
-## Tools
-
-- **OpenTofu** for infrastructure-as-code
-- **Butane** for human-readable system configuration
-- Direct SSH access for debugging and learning
 
 ## Learning Focus
 
 This is a **learning project** optimized for understanding uCore and Nomad fundamentals:
 
-- ✅ Single-node simplicity (no multi-node complexity)
+- ✅ Single-node simplicity
 - ✅ Direct tool exposure (minimal abstractions)
 - ✅ Weekend timeline (hours, not weeks)
 - ✅ Immutable security patterns
-- ✅ Container orchestration basics
+- ✅ Container orchestration comparison with Kubernetes
 
 **Not** a production-ready multi-node cluster.
+
+## Project Takeaways & Lessons Learned
+
+After building this complete single-node container orchestration setup, here are the key findings:
+
+### **Technical Achievements**
+- **uCore deployment successful**: Auto-rebase from Fedora CoreOS works seamlessly
+- **Immutable infrastructure**: Declarative configuration with Ignition/Butane is solid
+- **Container orchestration**: Nomad + Consul + Podman stack functional with service discovery
+- **Load balancing**: Traefik integration with Consul service registry working correctly
+- **Infrastructure as Code**: OpenTofu manages entire stack deployment reliably
+
+### **Nomad vs Kubernetes Reality Check**
+
+**Initial Promise**: "Simpler than Kubernetes for small deployments"
+
+**Assessment** (based on hands-on experience with both platforms):
+- **Job specification complexity**: Nomad job specs vs Kubernetes deployments - just different, not simpler. Same configuration complexity for networking, resources, health checks, etc.
+- **Control plane**: Single binary vs multiple services is already solved (k3s, minikube, managed K8s)
+- **Ecosystem depth**: Kubernetes has more options for everything (storage, networking, scaling, workload types); Nomad focuses on consistent patterns
+- **Perceived vs actual complexity**: Kubernetes appears overwhelming due to its vast ecosystem, but simple deployments are equally straightforward in both
+- **Community & tooling**: Much easier to find help, tools, and solutions for Kubernetes
+
+### **When Nomad Makes Sense**
+- **Pure HashiCorp shops**: Tight integration with Vault, Consul, Terraform workflows
+- **Specific compliance**: Environments requiring HashiCorp Enterprise support/features
+- **Resource constraints**: Truly minimal deployments where K8s overhead matters
+- **Learning HashiCorp**: Understanding their ecosystem before adopting Vault/Consul
 
 ## License
 
