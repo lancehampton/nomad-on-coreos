@@ -1,0 +1,64 @@
+variant: fcos
+version: 1.5.0
+
+storage:
+  directories:
+    - path: /var/lib/consul
+      mode: 0711
+
+  files:
+    - path: /opt/bin/consul_1.21.3_linux_amd64.zip
+      mode: 0644
+      contents:
+        source: https://releases.hashicorp.com/consul/1.21.3/consul_1.21.3_linux_amd64.zip
+
+systemd:
+  units:
+    - name: prepare-consul-binary.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Unpack Consul binary to /opt/bin
+        ConditionPathExists=!/opt/bin/consul
+
+        [Service]
+        Type=oneshot
+        Restart=on-failure
+        RemainAfterExit=yes
+        Environment=CONSUL_VERSION=1.21.3
+        ExecStart=/usr/bin/bsdtar -xf "/opt/bin/consul_${CONSUL_VERSION}_linux_amd64.zip" -C /opt/bin
+        ExecStart=/usr/bin/rm "/opt/bin/consul_${CONSUL_VERSION}_linux_amd64.zip"
+        ExecStart=/usr/bin/chmod +x /opt/bin/consul
+        # Fix SELinux contexts for systemd execution
+        ExecStart=/usr/bin/chcon -t bin_t /opt/bin/consul
+
+        [Install]
+        WantedBy=multi-user.target
+
+    - name: consul.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Consul
+        Documentation=https://www.consul.io/docs
+        After=network-online.target prepare-consul-binary.service
+        Wants=network-online.target
+        Requires=prepare-consul-binary.service
+
+        [Service]
+        ExecStart=/opt/bin/consul \
+          agent \
+          -server \
+          -ui \
+          -node="nomad-node" \
+          -bootstrap-expect=1 \
+          -client=0.0.0.0 \
+          -datacenter=homelab \
+          -data-dir=/var/lib/consul
+        Restart=always
+        RestartSec=2
+        TasksMax=infinity
+        OOMScoreAdjust=-1000
+
+        [Install]
+        WantedBy=multi-user.target

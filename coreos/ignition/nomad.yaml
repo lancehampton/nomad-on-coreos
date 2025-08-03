@@ -1,0 +1,130 @@
+variant: fcos
+version: 1.5.0
+
+storage:
+  directories:
+    - path: /etc/nomad.d
+      mode: 0700
+    - path: /var/lib/nomad
+      mode: 0711
+
+  files:
+    - path: /opt/bin/nomad_1.10.3_linux_amd64.zip
+      mode: 0644
+      contents:
+        source: https://releases.hashicorp.com/nomad/1.10.3/nomad_1.10.3_linux_amd64.zip
+
+    # Reference: https://developer.hashicorp.com/nomad/plugins/drivers/podman#installation
+    - path: /opt/bin/nomad-driver-podman_0.6.3_linux_amd64.zip
+      mode: 0644
+      contents:
+        source: https://releases.hashicorp.com/nomad-driver-podman/0.6.3/nomad-driver-podman_0.6.3_linux_amd64.zip
+
+    # Nomad common configuration (single-node setup)
+    # Reference: https://developer.hashicorp.com/nomad/docs/configuration
+    - path: /etc/nomad.d/common.hcl
+      mode: 0600
+      contents:
+        inline: |
+          datacenter = "homelab"
+          data_dir   = "/var/lib/nomad"
+          bind_addr  = "0.0.0.0"
+
+          # Plugin directory for external drivers like Podman
+          # Reference: https://developer.hashicorp.com/nomad/docs/configuration#plugin_dir
+          plugin_dir = "/opt/bin"
+
+          consul {
+            address = "127.0.0.1:8500"
+          }
+
+    # Nomad server configuration (single-node setup)
+    # Reference: https://developer.hashicorp.com/nomad/docs/configuration/server
+    - path: /etc/nomad.d/server.hcl
+      mode: 0600
+      contents:
+        inline: |
+          server {
+            enabled = true
+            bootstrap_expect = 1
+          }
+
+    # Nomad client configuration (enable local workloads)
+    # Reference: https://developer.hashicorp.com/nomad/docs/configuration/client
+    - path: /etc/nomad.d/client.hcl
+      mode: 0600
+      contents:
+        inline: |
+          client {
+            enabled = true
+          }
+
+          # Podman driver plugin configuration
+          # Reference: https://developer.hashicorp.com/nomad/plugins/drivers/podman#plugin-options
+          plugin "nomad-driver-podman" {
+            config {
+              socket_path = "unix://run/podman/io.podman"
+              volumes {
+                enabled = true
+              }
+            }
+          }
+
+systemd:
+  units:
+    # Unpack Nomad binary and Podman driver plugin
+    # Reference: https://developer.hashicorp.com/nomad/plugins/drivers/podman#installation
+    - name: prepare-nomad-binary.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Unpack Nomad binary and Podman driver to /opt/bin
+        ConditionPathExists=!/opt/bin/nomad
+
+        [Service]
+        Type=oneshot
+        Restart=on-failure
+        RemainAfterExit=yes
+        Environment=NOMAD_VERSION=1.10.3
+        Environment=PODMAN_DRIVER_VERSION=0.6.3
+        ExecStart=/usr/bin/bsdtar -xf "/opt/bin/nomad_${NOMAD_VERSION}_linux_amd64.zip" -C /opt/bin
+        ExecStart=/usr/bin/bsdtar -xf "/opt/bin/nomad-driver-podman_${PODMAN_DRIVER_VERSION}_linux_amd64.zip" -C /opt/bin
+        ExecStart=/usr/bin/rm "/opt/bin/nomad_${NOMAD_VERSION}_linux_amd64.zip"
+        ExecStart=/usr/bin/rm "/opt/bin/nomad-driver-podman_${PODMAN_DRIVER_VERSION}_linux_amd64.zip"
+        ExecStart=/usr/bin/chmod +x /opt/bin/nomad /opt/bin/nomad-driver-podman
+        # Fix SELinux contexts for systemd execution
+        ExecStart=/usr/bin/chcon -t bin_t /opt/bin/nomad /opt/bin/nomad-driver-podman
+
+        [Install]
+        WantedBy=multi-user.target
+
+    - name: nomad-agent.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Nomad
+        Documentation=https://www.nomadproject.io/docs/
+        After=network-online.target prepare-nomad-binary.service
+        Wants=network-online.target
+        Requires=prepare-nomad-binary.service
+
+        # When using Nomad with Consul it is not necessary to start Consul first. These
+        # lines start Consul before Nomad as an optimization to avoid Nomad logging
+        # that Consul is unavailable at startup.
+        Wants=consul.service
+        After=consul.service
+
+        [Service]
+        ExecReload=/bin/kill -HUP $MAINPID
+        ExecStart=/opt/bin/nomad agent -config /etc/nomad.d
+        KillMode=process
+        KillSignal=SIGINT
+        LimitNOFILE=65536
+        LimitNPROC=infinity
+        Restart=on-failure
+        RestartSec=2
+        TasksMax=infinity
+        OOMScoreAdjust=-1000
+
+        [Install]
+        WantedBy=multi-user.target

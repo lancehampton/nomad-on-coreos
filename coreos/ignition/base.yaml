@@ -1,0 +1,86 @@
+# Base uCore system configuration
+# Reference: https://coreos.github.io/butane/specs/
+# uCore Documentation: https://github.com/ublue-os/ucore
+variant: fcos
+version: 1.5.0
+
+storage:
+  directories:
+    - path: /opt/bin
+      mode: 0755
+  files:
+    - path: /etc/hostname
+      mode: 0644
+      contents:
+        inline: nomad-node
+
+passwd:
+  users:
+    - name: core
+      password_hash: "${password_hash}"
+      ssh_authorized_keys:
+        - "${ssh_public_key}"
+
+systemd:
+  units:
+    # Disable Zincati auto-updates (uCore Docs: Known Issues)
+    # Reference: https://github.com/ublue-os/ucore#ucore-minimal
+    - name: zincati.service
+      enabled: false
+      mask: true
+
+    # Reference: https://github.com/ublue-os/ucore/blob/main/examples/ucore-autorebase.butane
+    - name: ucore-unsigned-autorebase.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=uCore autorebase to unsigned OCI and reboot
+        ConditionPathExists=!/var/lib/%N.done
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Type=oneshot
+        StandardOutput=journal+console
+        ExecStart=/usr/bin/rpm-ostree rebase --bypass-driver ostree-unverified-registry:ghcr.io/ublue-os/ucore:stable
+        ExecStart=/usr/bin/touch /var/lib/%N.done
+        ExecStart=/usr/bin/systemctl --no-block reboot
+
+        [Install]
+        WantedBy=multi-user.target
+
+    # Enable optional uCore services
+    # Reference: https://github.com/ublue-os/ucore/pull/4 - Optional services disabled by default
+    - name: enable-ucore-services.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Enable uCore optional services
+        After=multi-user.target
+        Wants=multi-user.target
+
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        ExecStart=/usr/bin/systemctl enable --now tailscaled.service
+        ExecStart=/usr/bin/systemctl enable --now cockpit.service
+
+        [Install]
+        WantedBy=multi-user.target
+
+    - name: open-nomad-ui.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Open firewall for Nomad UI
+        After=firewalld.service
+        Wants=firewalld.service
+
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        ExecStart=/usr/bin/firewall-cmd --permanent --add-port=4646/tcp
+        ExecStart=/usr/bin/firewall-cmd --reload
+
+        [Install]
+        WantedBy=multi-user.target

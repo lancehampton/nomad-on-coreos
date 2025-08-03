@@ -1,0 +1,69 @@
+# OpenTofu / Terraform State
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfplan.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+crash.*.log
+
+# Terraform Configuration
+terraform.tfvars
+*.auto.tfvars
+*.auto.tfvars.json
+
+# CoreOS ISOs
+*.iso
+
+# SSH key materials
+*.pem
+*.key
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+ucore_homelab_ed25519
+ucore_homelab_ed25519.*
+known_hosts
+
+# Nomad State and Local Data
+nomad/data/
+.nomad/
+*.nomad_plan
+
+# Consul State and Local Data
+consul/data/
+.consul/
+
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Temporary Files
+tmp/
+temp/
+.tmp/
+*.bak
+*.backup
+*.orig
+core
+
+# Sensitive Files
+ignition.json
